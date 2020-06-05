@@ -92,7 +92,8 @@ end
 #
 def simulate(needs_lands, cmc)
 	needs_lands.upto(Lands) { |good_lands|
-		conditional = ok = 0
+		num_of_ok = 0
+		total_turn = 0
 
 		Iteration.times {
 			deck = hand = nil
@@ -113,20 +114,22 @@ def simulate(needs_lands, cmc)
 			(try-1).times { deck.put_bottom(hand.take(cmc)) }
 		
 			# ２ターン目以降のドロー（先手）
-#			2.upto(cmc) { hand.add(deck.draw) }
-			until hand.lands >= cmc
+			turn = 1
+			until hand.lands >= cmc && turn >= cmc
+				turn += 1
 				hand.add(deck.draw)
 			end
 		
-			ok += 1 if hand.good_lands >= needs_lands #&& hand.lands >= cmc
-			conditional += 1 #if hand.lands >= cmc
+			num_of_ok += 1 if hand.good_lands >= needs_lands
+			total_turn += turn
 		}
 	
-		ok_rate = ok.to_f / conditional
-		total_rate = conditional.to_f / Iteration
-		yield("#{good_lands}, #{ok_rate}, #{total_rate}")
+		rate_of_ok = num_of_ok.to_f / Iteration
+		average_turn = total_turn.to_f / Iteration
+		yield([good_lands, rate_of_ok, average_turn])
 	
-		break if ok_rate > 0.999
+		# 99.9%以上になったら、計算中止
+		break if rate_of_ok > 0.999
 	}
 end
 
@@ -134,11 +137,12 @@ needs_lands = 2
 (4..4).each { |cmc|
 	filename = "%02d%02d_%d%s.csv" % [Lands, Cards, cmc - needs_lands, 'C'*needs_lands]
 	
-	File.open(filename, 'w') { |f|
-		f.puts "mana source, P(play), P(land)"
+	File.open("results/" + filename, 'w') { |f|
+		f.puts "mana source, P(play), Ave(turn)"
+		f.flush
 		
 		simulate(needs_lands, cmc) { |result|
-			f.puts result
+			f.puts "%s, %f, %f" % result
 			f.flush
 		}
 	}
